@@ -9,8 +9,8 @@ var xml2js= require("xml2js");
 * 说明：必须联网，有ip白名单限制，注册号账户后可进行本机或服务器ip设置，只有白名单的ip才能够发起api请求。
 * 百度翻译api免费版高级版有对QPS（每秒查询率）=10的上限限制，所以做个定时器减少并发率
 **/
-const appid = '20200402000410642';//百度开发者注册后获取
-const key = 'ERoVtyyLDu44iSARUI7x';
+const appid = '20200402000XXXX';//百度开发者注册后获取
+const key = 'ERoVtyyLDu44iSXXXXX';
 const salt = (new Date).getTime();
 
 const unNormalEn="0l0";
