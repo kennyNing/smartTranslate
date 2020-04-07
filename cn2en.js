@@ -4,45 +4,41 @@ const fs=require('fs');
 var xml2js= require("xml2js");
 
 /**
-* 使用百度翻译通用api，个人认证后高级版
+* 使用百度翻译通用api，个人认证-高级版
 * 文档地址：https://api.fanyi.baidu.com/doc/21
 * 说明：必须联网，有ip白名单限制，注册号账户后可进行本机或服务器ip设置，只有白名单的ip才能够发起api请求。
 * 百度翻译api免费版高级版有对QPS（每秒查询率）=10的上限限制，所以做个定时器减少并发率
 **/
-const appid = '20200402000XXXX';//百度开发者注册后获取
-const key = 'ERoVtyyLDu44iSXXXXX';
+const appid = '20200402000410642';//百度开发者注册后获取
+const key = 'ERoVtyyLDu44iSARUI7x';
 const salt = (new Date).getTime();
 
 const unNormalEn="0l0";
-const xmlPath="./upload/resource.xml";//存量xml文件 
+const xmlPath="./upload/resource-test.xml";//存量xml文件
 var ws = fs.createWriteStream('./upload/resource_en.xml');//生成新的调整后xml文件
 var putOutData;//全局输出的xml临时对象
 
-
-
+/** 翻译单个单词测试示例,测试过最长字符427个是可以翻译的
+	baiduTranslateApiReq("逐笔指令处理的说明文字，一些必要提示和说明，可以放置连接","zh","en",function(error,data){
+		if(data){
+			console.log(JSON.stringify(data));
+			console.log(JSON.parse(data).trans_result[0].dst);
+		}
+		if(error){
+			console.log(JSON.stringify(error));
+		}
+	});
+**/
 http.createServer(function(req,response){
 	response.setHeader("Content-Type","text/html;charset=UTF-8"); 
 	response.writeHead(200, {'Content-Type': 'application/xml'});
-	
-	/** 翻译单个单词测试示例
-		baiduTranslateApiReq("我爱你中国，我伟大的祖国！","zh","en",function(error,data){
-			if(data){
-				console.log(JSON.stringify(data));
-				console.log(JSON.parse(data).trans_result[0].dst);
-			}
-			if(error){
-				console.log(JSON.stringify(error));
-			}
-		});
-	**/
-	
+
 	/** 实现逻辑：
 	*	1、获取xml所有节点
 	*	2、如果id为“en_US”,且为空，发接口翻译，同理如果繁体为空也要发接口补充
 	*	3、如果没有“en_US”,新建一个xml节点（需要找到xml2js方法），同理如果没有繁体也要新建
 	**/
-	var tempNum=0;
-	var tempCN="";
+	var tempNum=0; 
 	fs.readFile(xmlPath, function(err, data) {
 		var parser = new xml2js.Parser({"explicitArray":true,"async":true});//explicitArray 转化为数组
 		parser.parseString(data, function (err, result){ 
@@ -54,21 +50,22 @@ http.createServer(function(req,response){
 					ws.write(xml, "UTF-8"); //需要根据resource xml的encoding语言保持一致
 					ws.end();
 				}
+				if(error){
+					console.log(JSON.stringify(error));
+				}
 			});
 		});
 	});
 }).listen(8889);//配置端口
 
-//批量循环处理的变量，做全局声明，否则重复声明变量导致变量太多最终导致内存溢出的情况，保证一个变量内部控制好赋值取值范围就好
-var tempStatus=0;//是否有英文，0-有，1-没有
-var tempResourceValueObj;
-var tempCN="";
-var tempLog="";//打印日志，保存异常日志文件
+//批量循环处理的变量尽量做全局声明，否则重复声明太多的变量容易导致内存溢出异常，全局变量在内部控制好赋值取值范围就不会有问题
+var tempEN=2;//是否含有英文翻译，0-有，1-有（含节点，但值为空）,2-无节点
+var tempHK=2;//是否含有繁体翻译，0-有，1-有（含节点，但值为空）,2-无节点
 var tempRecord=0;//记录修改次数
 var tempUpdateID="";//记录修改id，后面打印出来或者导出来文件记录
-var currentJ=1;
+var tempResourceValueObj,tempValueCN,tempValueEN,tempValueHK;
 
-/** 循环翻译
+/** 循环翻译，递归调用翻译api，防止异步
 * index，当前节点
 * callback,回调函数含error,data
 **/
@@ -78,45 +75,91 @@ var enStranslateLoop=function(index,callback){//用递归调用，避免发baidu
 			tempResourceValueObj=putOutData.IDEExternResource.resource[index].resourceValue;
 			for(var j=0;j<tempResourceValueObj.length;j++){
 				if(tempResourceValueObj[j].$.id=="zh_CN"&&tempResourceValueObj[j]._!=null){
-					tempCN=tempResourceValueObj[j]._;
+					tempValueCN=tempResourceValueObj[j]._;
 				}
-				if(tempResourceValueObj[j].$.id=="en_US"&&tempResourceValueObj[j]._==null){//xml如果节点值为空可通过undefined和null判断，""无效
-					tempStatus=1;
-					currentJ=j;
+				if(tempResourceValueObj[j].$.id=="en_US"){//xml如果节点值为空可通过undefined和null判断，""无效
+					tempEN=0;
+					if(tempResourceValueObj[j]._==null){
+						tempEN=1;
+					}
+				}
+				if(tempResourceValueObj[j].$.id=="zh_HK"){//xml如果节点值为空可通过undefined和null判断，""无效
+					tempHK=0;
+					if(tempResourceValueObj[j]._==null){
+						tempHK=1;
+					}
 				}
 				//如果英文版有固定的特殊字符，也要进行过滤重新翻译
 			}
-			if(tempCN!=""&&tempStatus==1){
-				//百度翻译api免费版高级版有对QPS（每秒查询率）=10的上限限制，所以做个定时器减少并发率
-				setTimeout(function(){ 
-					baiduTranslateApiReq(tempCN,"zh","en",function(error,data){
-						if(data){
-							tempRecord++;
-							tempUpdateID += putOutData.IDEExternResource.resource[index].$.id+","; 
-							console.log(JSON.stringify(data));
-							putOutData.IDEExternResource.resource[index].resourceValue[currentJ]._=JSON.parse(data).trans_result[0].dst;
-							tempStatus=0;
-							index++;
-							enStranslateLoop(index,callback);
+			if(tempValueCN!=""){
+				//局部子节点递归翻译循环（英文、繁体最多2次api请求）
+				var loop=function(currentIndex,lan,cb){
+					console.log("currentIndex:"+currentIndex);
+					if(currentIndex<2){
+						if(lan=="en"&&tempEN==0){
+							currentIndex++; 
+							loop(currentIndex,"cht",cb);
+						}else if(lan=="cht"&&tempHK==0){ 
+							cb(null,"ok");
+						}else{
+							//百度翻译api免费版高级版有对QPS（每秒查询率）=10的上限限制，所以做个定时器减少并发率
+							setTimeout(function(){
+								baiduTranslateApiReq(tempValueCN,"zh",lan,function(error,data){
+									if(data){
+										tempUpdateID += putOutData.IDEExternResource.resource[index].$.id+"#"+lan+""+",";
+										console.log(JSON.stringify(data));
+										if(lan=="en")
+											tempValueEN=JSON.parse(data).trans_result[0].dst;
+										if(lan=="cht")
+											tempValueHK=JSON.parse(data).trans_result[0].dst;
+									}
+									if(error){//如果是出现异常继续执行,记录异常id和异常内容
+										tempUpdateID += putOutData.IDEExternResource.resource[index].$.id+"#"+lan+""+"："+JSON.stringify(error); 
+										console.log(putOutData.IDEExternResource.resource[index].$.id+"#"+lan+""+":"+JSON.stringify(error));
+									} 
+									if(lan=="en"){
+										lan="cht";
+										currentIndex++;
+										setTimeout(function(){
+											loop(currentIndex,lan,cb);
+										},200)
+									}else{
+										cb(error,data);
+									}
+								});
+							},200);//1秒最多能请求10次正常是隔100毫秒，那控制1秒最多请求8次，每隔125毫秒就不会超出api QPS最大为10的限制。
 						}
-						if(error){
-							console.log(JSON.stringify(error));
-						}
-					});
-				},125);//1秒最多能请求10次正常是隔100毫秒，那控制1秒最多请将8次，每隔125毫秒就不会超出api QPS的限制。
+					}else{
+						cb(null,"ok");
+					}
+				}
+				loop(0,"en",function(error,data){//默认先翻译英文
+					tempRecord++;
+					tempEN=2;//初始化默认值
+					tempHK=2;
+					//给xml重新赋值没有找到对应的api属性方法，只能重新组织然后赋值一整个对象给当前resource
+					putOutData.IDEExternResource.resource[index].resourceValue=[
+						{$: {id: "zh_CN"}, _: tempValueCN},
+						{$: {id: "en_US"}, _: tempValueEN},
+						{$: {id: "zh_HK"}, _: tempValueHK}
+						];
+					index++;
+					enStranslateLoop(index,callback);
+				});
 			}else{
 				index++;
 				enStranslateLoop(index,callback);
 			}
 		}else{
 			console.log("updated resource id list:"+tempUpdateID);
-			console.log("the count of en_US value is null:"+tempRecord+". updated success");
-			callback("failed","success");
+			console.log("the count of en_US value is null:"+tempRecord+". updated success");//输出为空总数
+			callback(null,"success");
 		}
 	}catch(e){
 		console.log(JSON.stringify(e));
 	}
 }
+
 /** 百度翻译api
 * query,多个query可以用\n连接  如 query='apple\norange\nbanana\npear'，最长为2000个字符
 * from,源语言，繁体中文：cht,源语言语种不确定时可设置为 auto
