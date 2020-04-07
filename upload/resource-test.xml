@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<IDEExternResource>
+  <suportLanguage>
+    <language id="zh_CN"
+              name="中文" />
+    <language id="en_US"
+              name="English" />
+  </suportLanguage>
+  <resource id="CSGH20">
+    <resourceValue id="zh_CN">订单退款查询</resourceValue>
+    <resourceValue id="en_US"></resourceValue>
+  </resource> 
+</IDEExternResource>
