@@ -18,7 +18,7 @@ const key = 'ERoVtyyLDu44iSARUI7x';
 const salt = (new Date).getTime();
 
 const unNormalEn="0l0";
-const xmlPath="./upload/resource-test.xml";//存量xml文件
+const xmlPath="./upload/resource_test.xml";//存量xml文件
 var ws = fs.createWriteStream('./upload/resource_en.xml');//生成新的调整后xml文件
 var putOutData;//全局输出的xml临时对象
 

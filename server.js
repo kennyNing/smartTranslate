@@ -3,8 +3,8 @@ var excel = require('exceljs'); //github doc：https://github.com/exceljs/excelj
 var xml2js= require("xml2js"); //github doc：https://github.com/Leonidas-from-XIV/node-xml2js
 const fs=require('fs');
 
-const excelPath="./upload/data.xlsx";//需英文调整表格，默认第4列为要求调整列
-const xmlPath="./upload/resource.xml";//存量xml文件
+const excelPath="./upload/en_data.xlsx";//需英文调整表格，默认第4列为要求调整列
+const xmlPath="./upload/resource_test.xml";//存量xml文件
 var ws = fs.createWriteStream('./upload/resource_new.xml');//生成新的调整后xml文件
 
 http.createServer(function(request,response){
