@@ -8,6 +8,10 @@ var xml2js= require("xml2js");
 * 文档地址：https://api.fanyi.baidu.com/doc/21
 * 说明：必须联网，有ip白名单限制，注册号账户后可进行本机或服务器ip设置，只有白名单的ip才能够发起api请求。
 * 百度翻译api免费版高级版有对QPS（每秒查询率）=10的上限限制，所以做个定时器减少并发率
+* 实现功能：
+	 1、英文版可能是基于百度翻译存在偏差，业务按指定excel格式（ID、中文、原英文、调整后英文），程序可自动将调整后的英文对xml进行更新。
+	 2、根据中文自动生成英文翻译节点。 4、根据中文自动生成繁体字xml节点。
+	 3、如果英文和繁体为空，只有中文的，自动生成对应英文和繁体节点。
 **/
 const appid = '20200402000410642';//百度开发者注册后获取
 const key = 'ERoVtyyLDu44iSARUI7x';
@@ -18,26 +22,10 @@ const xmlPath="./upload/resource-test.xml";//存量xml文件
 var ws = fs.createWriteStream('./upload/resource_en.xml');//生成新的调整后xml文件
 var putOutData;//全局输出的xml临时对象
 
-/** 翻译单个单词测试示例,测试过最长字符427个是可以翻译的
-	baiduTranslateApiReq("逐笔指令处理的说明文字，一些必要提示和说明，可以放置连接","zh","en",function(error,data){
-		if(data){
-			console.log(JSON.stringify(data));
-			console.log(JSON.parse(data).trans_result[0].dst);
-		}
-		if(error){
-			console.log(JSON.stringify(error));
-		}
-	});
-**/
 http.createServer(function(req,response){
 	response.setHeader("Content-Type","text/html;charset=UTF-8"); 
 	response.writeHead(200, {'Content-Type': 'application/xml'});
 
-	/** 实现逻辑：
-	*	1、获取xml所有节点
-	*	2、如果id为“en_US”,且为空，发接口翻译，同理如果繁体为空也要发接口补充
-	*	3、如果没有“en_US”,新建一个xml节点（需要找到xml2js方法），同理如果没有繁体也要新建
-	**/
 	var tempNum=0; 
 	fs.readFile(xmlPath, function(err, data) {
 		var parser = new xml2js.Parser({"explicitArray":true,"async":true});//explicitArray 转化为数组
@@ -122,12 +110,12 @@ var enStranslateLoop=function(index,callback){//用递归调用，避免发baidu
 										currentIndex++;
 										setTimeout(function(){
 											loop(currentIndex,lan,cb);
-										},200)
+										},125/2)
 									}else{
 										cb(error,data);
 									}
 								});
-							},200);//1秒最多能请求10次正常是隔100毫秒，那控制1秒最多请求8次，每隔125毫秒就不会超出api QPS最大为10的限制。
+							},125/2);//1秒最多能请求10次正常是隔100毫秒，那控制1秒最多请求8次，每隔125毫秒就不会超出api QPS最大为10的限制。
 						}
 					}else{
 						cb(null,"ok");
